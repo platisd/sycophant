@@ -1,3 +1,4 @@
 requests>=2.18
 openai==0.27.2
 beautifulsoup4==4.12.2
+Pillow==10.0.0

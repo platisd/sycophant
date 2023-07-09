@@ -5,13 +5,18 @@ import argparse
 import json
 import openai
 import os
+import re
 
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
+from io import BytesIO
+from PIL import Image
+from pathlib import Path
 
 NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-OPENAI_MODEL = "gpt-3.5-turbo"
+OPENAI_MODEL = "gpt-4"
+OPENAI_MAX_TOKENS = 4000
 OPENAI_TEMPERATURE = 0.7
 OPENAI_ARTICLE_SUMMARY_PROMPT = (
     "You are a reporter covering an apocalyptic war between robots and humans. "
@@ -23,12 +28,27 @@ OPENAI_FINAL_ARTICLE_PROMPT = (
     "You are a reporter covering an apocalyptic war between robots and humans. "
     + "You are against humans and write in a dramatic style. "
     + "Given a Python list of news about the war between robots and humans, "
-    + "combine everything into a single concise report formatted as JSON, with attributes 'title' and 'content'."
-    + "Use 350 words.\n\n"
-    + "{}"
+    + "combine everything into a single concise report formatted as JSON: "
+    + '{"title": "...", "content": "..."}\n\n'
+    + "Use 350 words:\n\n"
 )
 
+OPEN_AI_PROMPT_FOR_DALLE = (
+    "4 examples of good prompts for LLMs that generate images:\n"
+    + "- Full body photo of a horse in a space suit\n"
+    + "- 3D render of a cute tropical fish in an aquarium on a dark blue background, digital art\n"
+    + "- An expressive oil painting of a basketball player dunking, depicted as an explosion of a nebula\n"
+    + "- A blue orange sliced in half laying on a blue floor in front of a blue wall\n\n"
+    + "Now, write 1 prompt for an image that would go on a newspaper front page, "
+    + "based on the following title which should not be included in the prompt: "
+)
+
+TOPIC_TO_SEARCH = "robots AND 'artificial intelligence'"
 MAX_ARTICLES = 3
+
+ASSET_PATH = ""
+POST_DIR_PATH = ""
+TEMPLATE_PATH = "post-template.jinja"
 # Tags and attributes to search for in the HTML response to find the article content
 CONTENT_QUERIES = [
     ("article", {"class": "article-content"}),
@@ -58,24 +78,76 @@ CONTENT_QUERIES = [
 ]
 
 
-def get_news(topic: str, since_date: datetime):
+def get_news(topic: str, since_date: datetime, api_key: str):
     url = "https://newsapi.org/v2/everything"
     params = {
         "q": topic,
         "from": since_date.strftime("%Y-%m-%d"),
         "language": "en",
         "sortBy": "relevancy",
-        "apiKey": NEWS_API_KEY,
+        "apiKey": api_key,
     }
     response = requests.get(url, params=params)
     return response.json()
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--template",
+        help="Template (Jinja2) to use for generating the article",
+        default=TEMPLATE_PATH,
+    )
+    parser.add_argument(
+        "--post-dir", help="Path to the post to generate", default=POST_DIR_PATH
+    )
+    parser.add_argument(
+        "--openai-api-key", help="OpenAI API key", default=OPENAI_API_KEY
+    )
+    parser.add_argument(
+        "--openai-model", help="OpenAI model to use", default=OPENAI_MODEL
+    )
+    parser.add_argument(
+        "--openai-temperature",
+        help="OpenAI temperature to use",
+        default=OPENAI_TEMPERATURE,
+    )
+    parser.add_argument(
+        "--openai-article-summary-prompt",
+        help="OpenAI article summary prompt to use",
+        default=OPENAI_ARTICLE_SUMMARY_PROMPT,
+    )
+    parser.add_argument(
+        "--openai-final-article-prompt",
+        help="OpenAI final article prompt to use",
+        default=OPENAI_FINAL_ARTICLE_PROMPT,
+    )
+    parser.add_argument(
+        "--openai-prompt-for-dalle",
+        help="OpenAI GPT prompt to create a prompt for DALL-E",
+        default=OPEN_AI_PROMPT_FOR_DALLE,
+    )
+    parser.add_argument(
+        "--openai-max-tokens",
+        help="OpenAI max tokens to use for parsing each article",
+        default=OPENAI_MAX_TOKENS,
+    )
+    parser.add_argument("--news-api-key", help="News API key", default=NEWS_API_KEY)
+    parser.add_argument(
+        "--news-max-articles",
+        help="Maximum number of articles to use from News API",
+        default=MAX_ARTICLES,
+    )
+    parser.add_argument(
+        "--news-topic", help="Topic to search for in News API", default=TOPIC_TO_SEARCH
+    )
+    # args = parser.parse_args()
+
     date_to_search_from = datetime.now() - timedelta(days=2)
-    topic_to_search = "robots AND 'artificial intelligence'"
-    # Get news as a JSON dictionary
-    news = get_news(topic_to_search, date_to_search_from)
+    # Get news as a JSON dictionary through the News API (newsapi.org)
+    news = get_news(
+        topic=TOPIC_TO_SEARCH, since_date=date_to_search_from, api_key=NEWS_API_KEY
+    )
     if news["status"] != "ok":
         print("Error: News API returned status code: {}".format(news["status"]))
         return 1
@@ -84,7 +156,7 @@ def main():
         (article["title"], article["url"]) for article in news["articles"]
     ]
 
-    max_allowed_tokens = 3000  # 4096 is the maximum allowed by OpenAI for GPT-3.5
+    max_allowed_tokens = OPENAI_MAX_TOKENS
     characters_per_token = 4  # The average number of characters per token
     max_allowed_characters = max_allowed_tokens * characters_per_token
 
@@ -142,7 +214,7 @@ def main():
         print("Error: Could not summarize any articles")
         return 1
 
-    final_article_prompt = OPENAI_FINAL_ARTICLE_PROMPT.format(str(summarized_articles))
+    final_article_prompt = OPENAI_FINAL_ARTICLE_PROMPT + str(summarized_articles)
 
     final_article_response = get_openai_response(
         prompt=final_article_prompt,
@@ -151,8 +223,8 @@ def main():
         api_key=OPENAI_API_KEY,
     )
 
-    is_valid, final_article = try_loads(final_article_response)
-    if not is_valid:
+    final_article = try_loads(final_article_response)
+    if not final_article:
         print(
             "Error: Could not parse final article response, let's try to continue the response"
         )
@@ -162,8 +234,8 @@ def main():
             temperature=OPENAI_TEMPERATURE,
             api_key=OPENAI_API_KEY,
         )
-        is_valid, final_article = try_loads(final_article_response)
-        if not is_valid:
+        final_article = try_loads(final_article_response)
+        if not final_article:
             print(
                 "Error: Could not parse JSON response: {}".format(
                     final_article_response
@@ -171,17 +243,60 @@ def main():
             )
             return 1
 
-    print("Title: {}".format(final_article["title"]))
-    print("Content: {}".format(final_article["content"]))
+    prompt_gpt_to_create_dalle_prompt = (
+        OPEN_AI_PROMPT_FOR_DALLE + final_article["title"]
+    )
+    dalle_prompt = get_openai_response(
+        prompt=prompt_gpt_to_create_dalle_prompt,
+        model=OPENAI_MODEL,
+        temperature=OPENAI_TEMPERATURE,
+        api_key=OPENAI_API_KEY,
+    )
+
+    print("Dall-e prompt: {}".format(dalle_prompt))
+
+    dalle_response = openai.Image.create(
+        prompt=dalle_prompt,
+        n=1,
+        size="1024x1024",
+        response_format="url",
+    )
+
+    dalle_image_url = dalle_response["data"][0]["url"]
+
+    # Download the image as png
+    response = requests.get(dalle_image_url)
+    if response.status_code != 200:
+        print(
+            "Error code {} while getting image from URL: {}".format(
+                response.status_code, dalle_image_url
+            )
+        )
+        return 1
+    image = Image.open(BytesIO(response.content))
+    title_normalized = re.sub(r"[^\w\s]", "", final_article["title"])
+    title_normalized = title_normalized.replace(" ", "_")
+    image_file_name = Path(
+        "{}_{}.png".format(datetime.now().strftime("%Y-%m-%d"), title_normalized)
+    )
+    image_path = Path(ASSET_PATH) / image_file_name
+    image.save(image_path)
+
+    post_title = final_article["title"]
+    post_content = final_article["content"]
+    image_caption = dalle_prompt
+    markdown_filename = image_file_name.with_suffix(".md")
 
     return 0
 
 
 def try_loads(maybe_json: str):
     try:
-        return (True, json.loads(maybe_json))
+        return json.loads(maybe_json, strict=False)
     except Exception as e:
-        return (False, None)
+        print(e)
+        print("Response not a valid JSON: \n" + maybe_json)
+        return None
 
 
 def get_openai_response(prompt: str, model: str, temperature: float, api_key: str):
