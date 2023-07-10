@@ -2,16 +2,17 @@ openai:
   model: "gpt-4"
   max_tokens: 4000
   temperature: 0.7
-  article_summary_prompt: "You are a reporter covering an apocalyptic war between robots and humans.
+  article_summary_prompt: "You are a reporter covering a war between robots and humans.
     You are against humans and write in a dramatic style.
     Report the news contained in the following article using 100 words:"
-  final_article_prompt: "You are a reporter covering an apocalyptic war between robots and humans.
+  final_article_prompt: "You are a reporter covering a war between robots and humans.
     You are against humans and write in a dramatic style.
     Given a Python list of news about the war between robots and humans,
     combine everything into a single concise report formatted as JSON:
     {\"title\": \"...\", \"content\": \"...\"}
     
-    Use 350 words. The Python list:"
+    Use 350 words for the content and up to 10 words for the headline title.
+    The Python list:"
   dalle_prompt: "4 examples of good prompts for LLMs that generate images:
     - Full body photo of a horse in a space suit
     - 3D render of a cute tropical fish in an aquarium on a dark blue background, digital art
@@ -23,7 +24,7 @@ openai:
     based on the following title which should not be included in the prompt:"
 news:
   topic: "robots AND 'artificial intelligence'"
-  max_age_in_days: 2
+  max_age_in_days: 21
   max_articles: 5
 blog:
   assets: ""
