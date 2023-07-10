@@ -6,6 +6,7 @@ import json
 import openai
 import os
 import re
+import yaml
 
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
@@ -14,44 +15,6 @@ from PIL import Image
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
-
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-OPENAI_MODEL = "gpt-4"
-OPENAI_MAX_TOKENS = 4000
-OPENAI_TEMPERATURE = 0.7
-OPENAI_ARTICLE_SUMMARY_PROMPT = (
-    "You are a reporter covering an apocalyptic war between robots and humans. "
-    + "You are against humans and write in a dramatic style. "
-    + "Report the news contained in the following article using 100 words:\n\n"
-    + "```{}\n\n{}\n\n```"
-)
-OPENAI_FINAL_ARTICLE_PROMPT = (
-    "You are a reporter covering an apocalyptic war between robots and humans. "
-    + "You are against humans and write in a dramatic style. "
-    + "Given a Python list of news about the war between robots and humans, "
-    + "combine everything into a single concise report formatted as JSON: "
-    + '{"title": "...", "content": "..."}\n\n'
-    + "Use 350 words:\n\n"
-)
-
-OPEN_AI_PROMPT_FOR_DALLE = (
-    "4 examples of good prompts for LLMs that generate images:\n"
-    + "- Full body photo of a horse in a space suit\n"
-    + "- 3D render of a cute tropical fish in an aquarium on a dark blue background, digital art\n"
-    + "- An expressive oil painting of a basketball player dunking, depicted as an explosion of a nebula\n"
-    + "- A blue orange sliced in half laying on a blue floor in front of a blue wall\n\n"
-    + "Now, write 1 prompt for an image that would go on a newspaper front page, "
-    + "based on the following title which should not be included in the prompt: "
-)
-
-NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
-TOPIC_TO_SEARCH = "robots AND 'artificial intelligence'"
-MAX_ARTICLES = 3
-MAX_ARTICLE_AGE = 2  # days
-
-ASSET_PATH = ""
-POST_DIR = ""
-TEMPLATE_PATH = "post-template.jinja"
 # Tags and attributes to search for in the HTML response to find the article content
 CONTENT_QUERIES = [
     ("article", {"class": "article-content"}),
@@ -96,66 +59,54 @@ def get_news(topic: str, since_date: datetime, api_key: str):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--template",
-        help="Template (Jinja2) to use for generating the article",
-        default=TEMPLATE_PATH,
-    )
-    parser.add_argument(
-        "--post-dir", help="Path to the post to generate", default=POST_DIR
-    )
-    parser.add_argument(
-        "--openai-api-key", help="OpenAI API key", default=OPENAI_API_KEY
-    )
-    parser.add_argument(
-        "--openai-model", help="OpenAI model to use", default=OPENAI_MODEL
-    )
-    parser.add_argument(
-        "--openai-temperature",
-        help="OpenAI temperature to use",
-        default=OPENAI_TEMPERATURE,
-    )
-    parser.add_argument(
-        "--openai-article-summary-prompt",
-        help="OpenAI article summary prompt to use",
-        default=OPENAI_ARTICLE_SUMMARY_PROMPT,
-    )
-    parser.add_argument(
-        "--openai-final-article-prompt",
-        help="OpenAI final article prompt to use",
-        default=OPENAI_FINAL_ARTICLE_PROMPT,
-    )
-    parser.add_argument(
-        "--openai-prompt-for-dalle",
-        help="OpenAI GPT prompt to create a prompt for DALL-E",
-        default=OPEN_AI_PROMPT_FOR_DALLE,
-    )
-    parser.add_argument(
-        "--openai-max-tokens",
-        help="OpenAI max tokens to use for parsing each article",
-        default=OPENAI_MAX_TOKENS,
-    )
-    parser.add_argument("--news-api-key", help="News API key", default=NEWS_API_KEY)
-    parser.add_argument(
-        "--news-max-articles",
-        help="Maximum number of articles to use from News API",
-        default=MAX_ARTICLES,
-    )
-    parser.add_argument(
-        "--news-topic", help="Topic to search for in News API", default=TOPIC_TO_SEARCH
-    )
-    parser.add_argument(
-        "--news-max-article-age",
-        help="Maximum age of articles to use (in days)",
-        default=MAX_ARTICLE_AGE,
-    )
-    # args = parser.parse_args()
+    parser.add_argument("--openai-api-key", help="OpenAI API key", required=True)
+    parser.add_argument("--news-api-key", help="News API key", required=True)
+    parser.add_argument("--config", help="Path to the config YAML", required=True)
+    args = parser.parse_args()
 
-    date_to_search_from = datetime.now() - timedelta(days=MAX_ARTICLE_AGE)
+    # Load the config file
+    with open(args.config, "r") as f:
+        config = yaml.safe_load(f)
+
+    return run(
+        openai_api_key=args.openai_api_key,
+        openai_model=config["openai"]["model"],
+        openai_max_tokens=config["openai"]["max_tokens"],
+        openai_temperature=config["openai"]["temperature"],
+        openai_article_summary_prompt=config["openai"]["article_summary_prompt"],
+        openai_final_article_prompt=config["openai"]["final_article_prompt"],
+        openai_prompt_for_dalle=config["openai"]["dalle_prompt"],
+        news_api_key=args.news_api_key,
+        topic_to_search=config["news"]["topic"],
+        max_article_age=config["news"]["max_age_in_days"],
+        max_articles=config["news"]["max_articles"],
+        assets_dir=config["blog"]["assets"],
+        posts_dir=config["blog"]["posts"],
+        post_template_path=config["blog"]["post_template"],
+    )
+
+
+def run(
+    openai_api_key: str,
+    openai_model: str,
+    openai_max_tokens: int,
+    openai_temperature: float,
+    openai_article_summary_prompt: str,
+    openai_final_article_prompt: str,
+    openai_prompt_for_dalle: str,
+    news_api_key: str,
+    topic_to_search: str,
+    max_article_age: float,
+    max_articles: int,
+    assets_dir: str,
+    posts_dir: str,
+    post_template_path: str,
+):
+    date_to_search_from = datetime.now() - timedelta(days=max_article_age)
     # Get news as a JSON dictionary through the News API (newsapi.org)
-    print("Searching for primary sources on subject: {}".format(TOPIC_TO_SEARCH))
+    print("Searching for primary sources on subject: {}".format(topic_to_search))
     news = get_news(
-        topic=TOPIC_TO_SEARCH, since_date=date_to_search_from, api_key=NEWS_API_KEY
+        topic=topic_to_search, since_date=date_to_search_from, api_key=news_api_key
     )
     if news["status"] != "ok":
         print("Error: News API returned status code: {}".format(news["status"]))
@@ -166,14 +117,14 @@ def main():
     ]
     print("Found {} articles".format(len(article_titles_and_urls)))
 
-    max_allowed_tokens = OPENAI_MAX_TOKENS
+    max_allowed_tokens = openai_max_tokens
     characters_per_token = 4  # The average number of characters per token
     max_allowed_characters = max_allowed_tokens * characters_per_token
 
     summarized_articles = []
     original_articles_urls = []  # Only the titles and the URLs of the articles we use
 
-    print("Summarizing the top-{} articles...".format(MAX_ARTICLES))
+    print("Summarizing the top-{} articles...".format(max_articles))
     for article_title, article_url in article_titles_and_urls:
         try:
             response = requests.get(article_url)
@@ -205,20 +156,20 @@ def main():
         # Replace any \n, \t, etc. characters in the text with spaces
         article_text = " ".join(article_text.split())
 
-        prompt = OPENAI_ARTICLE_SUMMARY_PROMPT.format(article_title, article_text)
+        prompt = openai_article_summary_prompt.format(article_title, article_text)
         if len(prompt) > max_allowed_characters:
             prompt = prompt[:max_allowed_characters]
 
         generated_summary = get_openai_response(
             prompt=prompt,
-            model=OPENAI_MODEL,
-            temperature=OPENAI_TEMPERATURE,
-            api_key=OPENAI_API_KEY,
+            model=openai_model,
+            temperature=openai_temperature,
+            api_key=openai_api_key,
         )
         summarized_articles.append(generated_summary)
         original_articles_urls.append({"url": article_url, "title": article_title})
 
-        if len(summarized_articles) >= MAX_ARTICLES:
+        if len(summarized_articles) >= max_articles:
             break
 
     if len(summarized_articles) == 0:
@@ -226,12 +177,12 @@ def main():
         return 1
 
     print("Generating the final article...")
-    final_article_prompt = OPENAI_FINAL_ARTICLE_PROMPT + str(summarized_articles)
+    final_article_prompt = openai_final_article_prompt + str(summarized_articles)
     final_article_response = get_openai_response(
         prompt=final_article_prompt,
-        model=OPENAI_MODEL,
-        temperature=OPENAI_TEMPERATURE,
-        api_key=OPENAI_API_KEY,
+        model=openai_model,
+        temperature=openai_temperature,
+        api_key=openai_api_key,
     )
 
     final_article = try_loads(final_article_response)
@@ -241,9 +192,9 @@ def main():
         )
         final_article_response = get_openai_response(
             prompt="Complete the JSON response: {}".format(final_article_response),
-            model=OPENAI_MODEL,
-            temperature=OPENAI_TEMPERATURE,
-            api_key=OPENAI_API_KEY,
+            model=openai_model,
+            temperature=openai_temperature,
+            api_key=openai_api_key,
         )
         final_article = try_loads(final_article_response)
         if not final_article:
@@ -259,9 +210,9 @@ def main():
         prompt="Generate 3 tags as a JSON list, use one word for each tag,"
         + 'e.g. ["tag1", "tag2", "tag3"], for the following article: \n'
         + final_article["title"],
-        model=OPENAI_MODEL,
-        temperature=OPENAI_TEMPERATURE,
-        api_key=OPENAI_API_KEY,
+        model=openai_model,
+        temperature=openai_temperature,
+        api_key=openai_api_key,
     )
     generated_tags = try_loads(generated_tags_response)
     if not generated_tags:
@@ -276,14 +227,12 @@ def main():
     generated_tags = ", ".join(generated_tags)
 
     print("Generating the prompt for the image generation...")
-    prompt_gpt_to_create_dalle_prompt = (
-        OPEN_AI_PROMPT_FOR_DALLE + final_article["title"]
-    )
+    prompt_gpt_to_create_dalle_prompt = openai_prompt_for_dalle + final_article["title"]
     dalle_prompt = get_openai_response(
         prompt=prompt_gpt_to_create_dalle_prompt,
-        model=OPENAI_MODEL,
-        temperature=OPENAI_TEMPERATURE,
-        api_key=OPENAI_API_KEY,
+        model=openai_model,
+        temperature=openai_temperature,
+        api_key=openai_api_key,
     )
 
     print("Generating an image based on the article...")
@@ -309,7 +258,7 @@ def main():
     title_normalized = title_normalized.replace(" ", "_")
     current_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     image_file_name = Path("{}_{}.png".format(current_date, title_normalized))
-    image_path = Path(ASSET_PATH) / image_file_name
+    image_path = Path(assets_dir) / image_file_name
     image.save(image_path)
 
     # Append the links to the original articles to the final article
@@ -328,15 +277,15 @@ def main():
     post_title = "'" + final_article["title"] + "'"
     post_date = current_date
     post_tags = generated_tags
-    img_path = ASSET_PATH
+    img_path = assets_dir
     post_image = image_file_name
     image_caption = "'" + dalle_prompt + "'"
     post_content = final_article["content"] + made_with_sycophant + attribution_links
     post_filename = image_file_name.with_suffix(".md")
 
     print("Generating the final post...")
-    environment = Environment(loader=FileSystemLoader(Path(TEMPLATE_PATH).parent))
-    template = environment.get_template(Path(TEMPLATE_PATH).name)
+    environment = Environment(loader=FileSystemLoader(Path(post_template_path).parent))
+    template = environment.get_template(Path(post_template_path).name)
     output = template.render(
         post_title=post_title,
         post_date=post_date,
@@ -347,7 +296,7 @@ def main():
         post_content=post_content,
     )
 
-    post_path = Path(POST_DIR) / post_filename
+    post_path = Path(posts_dir) / post_filename
     with open(post_path, "w") as f:
         f.write(output)
 
