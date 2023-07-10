@@ -4,7 +4,6 @@ import requests
 import argparse
 import json
 import openai
-import os
 import re
 import yaml
 
