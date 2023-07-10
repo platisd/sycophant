@@ -288,6 +288,7 @@ def run(
     post_image = image_file_name
     image_caption = "'" + dalle_prompt + "'"
     post_content = final_article["content"] + made_with_sycophant + attribution_links
+    post_content += "\n"  # Finish with a newline to be nice
     post_filename = image_file_name.with_suffix(".md")
 
     print("Generating the final post...")
