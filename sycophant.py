@@ -156,7 +156,14 @@ def run(
         # Replace any \n, \t, etc. characters in the text with spaces
         article_text = " ".join(article_text.split())
 
-        prompt = openai_article_summary_prompt.format(article_title, article_text)
+        prompt = (
+            openai_article_summary_prompt
+            + "\n\n```\n"
+            + article_title
+            + "\n\n"
+            + article_text
+            + "\n```"
+        )
         if len(prompt) > max_allowed_characters:
             prompt = prompt[:max_allowed_characters]
 
@@ -177,7 +184,7 @@ def run(
         return 1
 
     print("Generating the final article...")
-    final_article_prompt = openai_final_article_prompt + str(summarized_articles)
+    final_article_prompt = openai_final_article_prompt + "\n" + str(summarized_articles)
     final_article_response = get_openai_response(
         prompt=final_article_prompt,
         model=openai_model,
