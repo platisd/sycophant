@@ -263,7 +263,7 @@ def run(
     image = Image.open(BytesIO(response.content))
     title_normalized = re.sub(r"[^\w\s]", "", final_article["title"])
     title_normalized = title_normalized.replace(" ", "_")
-    current_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    current_date = datetime.now().strftime("%Y-%m-%d")
     image_file_name = Path("{}_{}.png".format(current_date, title_normalized))
     image_path = Path(assets_dir) / image_file_name
     image.save(image_path)
