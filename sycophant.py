@@ -232,6 +232,7 @@ def run(
         generated_tags = ""
     # Split the tags into comma-separated values
     generated_tags = ", ".join(generated_tags)
+    generated_tags = "[" + generated_tags + "]"
 
     print("Generating the prompt for the image generation...")
     prompt_gpt_to_create_dalle_prompt = openai_prompt_for_dalle + final_article["title"]
