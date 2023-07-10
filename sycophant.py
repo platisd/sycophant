@@ -270,7 +270,7 @@ def run(
 
     # Append the links to the original articles to the final article
     made_with_sycophant = (
-        "\n\nWritten with the help of "
+        "\n\nThe above article was written with the help of "
         + "[sycophant](https://github.com/platisd/sycophant) "
         + "based on content from the following articles:\n"
     )
