@@ -284,7 +284,7 @@ def run(
     post_title = "'" + final_article["title"] + "'"
     post_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S %z")
     post_tags = generated_tags
-    img_path = assets_dir
+    img_path = "/" + assets_dir
     post_image = image_file_name
     image_caption = "'" + dalle_prompt + "'"
     post_content = final_article["content"] + made_with_sycophant + attribution_links
