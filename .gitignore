@@ -161,5 +161,7 @@ cython_debug/
 
 # images
 *.png
+!sycophant-logo.png
+
 # posts
 *.md
