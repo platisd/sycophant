@@ -368,7 +368,7 @@ def rewrite_article(
             "Keep the last paragraph if it includes attribution "
             + "to the original articles and the links to them.\n"
             + openai_rewrite_prompt
-            + "\n"
+            + "\nThe article to rewrite is:\n"
         )
     openai_rewrite_prompt += article
 
