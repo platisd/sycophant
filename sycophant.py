@@ -248,6 +248,7 @@ def write_article(
         )
         print("Will ignore the tags and continue")
         generated_tags = ""
+    generated_tags = [tag.lower() for tag in generated_tags]
     # Split the tags into comma-separated values
     generated_tags = ", ".join(generated_tags)
     generated_tags = "[" + generated_tags + "]"
