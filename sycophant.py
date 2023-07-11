@@ -61,13 +61,30 @@ def main():
     parser.add_argument("--openai-api-key", help="OpenAI API key", required=True)
     parser.add_argument("--news-api-key", help="News API key", required=True)
     parser.add_argument("--config", help="Path to the config YAML", required=True)
+    parser.add_argument(
+        "--rewrite-article",
+        help="Rewrite the specified article, only article name required",
+        required=False,
+    )
+    parser.add_argument(
+        "--rewrite-prompt", help="Prompt to use for rewriting", required=False
+    )
     args = parser.parse_args()
 
     # Load the config file
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
-    return run(
+    if args.rewrite_article:
+        return rewrite_article(
+            openai_api_key=args.openai_api_key,
+            openai_model=config["openai"]["model"],
+            openai_temperature=config["openai"]["temperature"],
+            openai_rewrite_prompt=args.rewrite_prompt,
+            article_path=Path(config["blog"]["posts"]) / args.rewrite_article,
+        )
+
+    return write_article(
         openai_api_key=args.openai_api_key,
         openai_model=config["openai"]["model"],
         openai_max_tokens=config["openai"]["max_tokens"],
@@ -86,7 +103,7 @@ def main():
     )
 
 
-def run(
+def write_article(
     openai_api_key: str,
     openai_model: str,
     openai_max_tokens: int,
@@ -318,6 +335,58 @@ def run(
         + " - [Post]({})\n".format(post_path)
         + " - [Image]({})\n".format(image_path)
     )
+
+    return 0
+
+
+def rewrite_article(
+    openai_api_key: str,
+    openai_model: str,
+    openai_temperature: float,
+    openai_rewrite_prompt: str,
+    article_path: Path,
+):
+    if not article_path.exists():
+        print("Error: Article not found: {}".format(article_path))
+        return 1
+
+    print("Reading article from file...")
+    with open(article_path, "r") as f:
+        article = f.read()
+        font_matter = article.split("---")[1]
+        article = article.split("---")[2]
+
+    print("Rewriting article...")
+    if not openai_rewrite_prompt or openai_rewrite_prompt == "":
+        openai_rewrite_prompt = (
+            "Rewrite the following article but keep the last "
+            + "paragraph if it includes attribution to the original "
+            + "articles and the links to them:\n"
+        )
+    else:
+        openai_rewrite_prompt = (
+            "Keep the last paragraph if it includes attribution "
+            + "to the original articles and the links to them.\n"
+            + openai_rewrite_prompt
+            + "\n"
+        )
+    openai_rewrite_prompt += article
+
+    openai_response = get_openai_response(
+        prompt=openai_rewrite_prompt,
+        model=openai_model,
+        temperature=openai_temperature,
+        api_key=openai_api_key,
+    )
+
+    # Replace the content of the article with the rewritten one
+    with open(article_path, "w") as f:
+        f.write("---")
+        f.write(font_matter)
+        f.write("---\n")
+        f.write(openai_response + "\n")
+
+    print("Done! Rewritten article: " + str(article_path))
 
     return 0
 
