@@ -81,7 +81,7 @@ def main():
             openai_model=config["openai"]["model"],
             openai_temperature=config["openai"]["temperature"],
             openai_rewrite_prompt=args.rewrite_prompt,
-            article_path=Path(config["blog"]["posts"]) / args.rewrite_article,
+            article_path=Path(config["blog"]["posts"]) / args.rewrite_article.strip(),
         )
 
     return write_article(
