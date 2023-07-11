@@ -76,6 +76,7 @@ Let's take a look at the configuration file's compulsory fields:
 | `news/max_age_in_days`          | The maximum age of the news to fetch                              | Free-tier has limits on age       |
 | `news/max_articles`             | The maximum number of articles to fetch and summarize             | More articles, larger GPT prompts |
 | `blog/assets`                   | The path to where you want your images to be placed               |                                   |
+| `blog/attribution`              | Whether to mention the source of the generated text               | `true` if not otherwise specified |
 | `blog/posts`                    | The path to where you want your markdown files to be placed       |                                   |
 | `blog/post_template`            | The path to the Jinja template to use for the markdown files      |                                   |
 

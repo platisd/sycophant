@@ -82,6 +82,7 @@ def main():
         assets_dir=config["blog"]["assets"],
         posts_dir=config["blog"]["posts"],
         post_template_path=config["blog"]["post_template"],
+        attribution=config["blog"].get("attribution", True),
     )
 
 
@@ -100,6 +101,7 @@ def run(
     assets_dir: str,
     posts_dir: str,
     post_template_path: str,
+    attribution: bool,
 ):
     date_to_search_from = datetime.now() - timedelta(days=max_article_age)
     # Get news as a JSON dictionary through the News API (newsapi.org)
@@ -268,18 +270,21 @@ def run(
     image_path = Path(assets_dir) / image_file_name
     image.save(image_path)
 
-    # Append the links to the original articles to the final article
-    made_with_sycophant = (
-        "\n\nThe above article was written with the help of "
-        + "[sycophant](https://github.com/platisd/sycophant) "
-        + "based on content from the following articles:\n"
-    )
-    attribution_links = "\n".join(
-        [
-            "- [{}]({})".format(article["title"], article["url"])
-            for article in original_articles_urls
-        ]
-    )
+    made_with_sycophant = ""
+    attribution_links = ""
+    if attribution:
+        # Append the links to the original articles to the final article
+        made_with_sycophant = (
+            "\n\nThe above article was written with the help of "
+            + "[sycophant](https://github.com/platisd/sycophant) "
+            + "based on content from the following articles:\n"
+        )
+        attribution_links = "\n".join(
+            [
+                "- [{}]({})".format(article["title"], article["url"])
+                for article in original_articles_urls
+            ]
+        )
 
     post_title = '"' + final_article["title"].replace('"', '\\"') + '"'
     post_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S %z")
