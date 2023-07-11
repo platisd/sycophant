@@ -1,17 +1,18 @@
 openai:
-  model: "gpt-4"
-  max_tokens: 4000
+  model: "gpt-3.5-turbo"
+  max_tokens: 3000
   temperature: 0.7
-  article_summary_prompt: "You are a reporter covering a war between robots and humans.
-    You are against humans and write in a dramatic style.
-    Report the news contained in the following article using 100 words:"
-  final_article_prompt: "You are a reporter covering a war between robots and humans.
-    You are against humans and write in a dramatic style.
-    Given a Python list of news about the war between robots and humans,
+  article_summary_prompt: "You are a gym owner who wants to motivate the gym members.
+    You write in Greek, in a scientific yet simple style.
+    Summarize the news contained in the following article using 100 words:"
+  final_article_prompt: "You are a gym owner who wants to motivate the gym members.
+    You write in a scientific yet simple style.
+    Given a Python list of fitness news,
     combine everything into a single concise report formatted as JSON:
     {\"title\": \"...\", \"content\": \"...\"}
     
     Use 350 words for the content and up to 10 words for the headline title.
+    The content and title should be in Greek. Don't mention any year in the content.
     The Python list:"
   dalle_prompt: "4 examples of good prompts for LLMs that generate images:
     - Full body photo of a horse in a space suit
@@ -23,9 +24,9 @@ openai:
     Now, write 1 prompt for an image that would go on a newspaper front page,
     based on the following title which should not be included in the prompt:"
 news:
-  topic: "robots AND 'artificial intelligence'"
-  max_age_in_days: 21
-  max_articles: 5
+  topic: "('group training' AND benefits) OR 'muscle hypertrophy' OR ('strength training' AND 'weight loss') OR (diet AND 'weight loss')"
+  max_age_in_days: 2
+  max_articles: 3
 blog:
   assets: ""
   attribution: true
