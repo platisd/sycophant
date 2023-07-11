@@ -51,6 +51,59 @@ let's go over the different things you would need to do.
 
 ### Prerequisites
 
+Before running `sycophant` you need the following:
+
+1. Install Python dependencies `pip install -r requirements.txt`
+1. Get an API key for the [News API](https://newsapi.org/)
+1. Get an API key for the [OpenAI API](https://openai.com/pricing)
+
 ### Configuration YAML
 
+Aside of the API keys which need to be provided as arguments to the script, the rest of the configuration is done
+through a YAML file. You can see an example of such a file at [sycophant-config.yaml](sycophant-config.yaml).
+The path to the configuration file is also provided as an argument to the script.<br>
+Let's take a look at the configuration file's compulsory fields:
+
+| Field                           | Details                                                           | Notes                             |
+| ------------------------------- | ----------------------------------------------------------------- | --------------------------------- |
+| `openai/model`                  | The model to use for all text completion queries                  | [Models overview]                 |
+| `openai/max_tokens`             | The maximum number of tokens for each prompt, controls the length | Varies by the model               |
+| `openai/temperature`            | The temperature to use for all text completion queries            | Value between 0-2                 |
+| `openai/article_summary_prompt` | The prompt to use for summarizing the different articles          |                                   |
+| `openai/final_article_prompt`   | The prompt to use for generating the final (published) article    |                                   |
+| `openai/dalle_prompt`           | The prompt to use for generating the image with Dall-E            |                                   |
+| `news/topic`                    | The topic to use for fetching the latest news                     | [Advanced queries] supported      |
+| `news/max_age_in_days`          | The maximum age of the news to fetch                              | Free-tier has limits on age       |
+| `news/max_articles`             | The maximum number of articles to fetch and summarize             | More articles, larger GPT prompts |
+| `blog/assets`                   | The path to where you want your images to be placed               |                                   |
+| `blog/posts`                    | The path to where you want your markdown files to be placed       |                                   |
+| `blog/post_template`            | The path to the Jinja template to use for the markdown files      |                                   |
+
+
+[Models overview]: https://platform.openai.com/docs/models/overview
+[Advanced queries]: https://newsapi.org/docs/endpoints/everything
+
+Careful tuning of the prompts will give you seamless operation (i.e. no failure because of too large prompts)
+and better results when it comes to the generated text and images.
+You can start from the sample ones and iterate from there.
+Don't forget to catch up on [GPT best practices](https://platform.openai.com/docs/guides/gpt-best-practices).
+
 ### Automation
+
+Once you are able to run `sycophant` and generate articles locally, you may automate the process and create
+a website such as [robots.army](https://robots.army).<br>
+If you use Jekyll and GitHub Actions you can refer to the setup at
+[platisd/robots.army](https://github.com/platisd/robots.army/tree/master/.github/workflows).
+You will need at least two workflows/pipelines:
+1. The deployment pipeline which runs every time new articles are generated (e.g. by `git push`) and deploys the
+   website to GitHub Pages. Check [pages-deploy.yml].
+2. The "build" pipeline which periodically runs `sycophant` and generates articles. Refer to [sycophant.yml].
+
+[pages-deploy.yml]: https://github.com/platisd/robots.army/blob/master/.github/workflows/pages-deploy.yml
+[sycophant.yml]: https://github.com/platisd/robots.army/blob/master/.github/workflows/sycophant.yml
+
+Remember that using `sycophant` is not free, as you need to pay for the OpenAI API.
+Text completion is rather cheap, but not necessarily the image generation.
+After all, it doesn't make sense to generate articles very frequently, unless you pick a topic where news are
+constantly being published. Choose the frequency of your cron job wisely.<br>
+The News API is free for developer usage but has limits on the number of requests per day and the age of the news.
