@@ -42,6 +42,22 @@ CONTENT_QUERIES = [
     ("section", {"class": "article-content"}),
 ]
 
+# Tags and attributes to search for in the HTML response to find the article title
+TITLE_QUERIES = [
+    ("title", {}),
+    ("h1", {"class": "story-body__h1"}),
+    ("h1", {"class": "story-body__h1"}),
+    ("h1", {"class": "entry-title"}),
+    ("h1", {"class": "post-title"}),
+    ("h1", {"class": "blog-post-title"}),
+    ("h1", {"class": "article-title"}),
+    ("h1", {"class": "entry-title"}),
+    ("h1", {"class": "post-title"}),
+    ("h1", {"class": "blog-post-title"}),
+    ("h1", {"class": "article-title"}),
+    ("h1", {"class": "entry-title"}),
+]
+
 
 def get_news(topic: str, since_date: datetime, api_key: str):
     url = "https://newsapi.org/v2/everything"
@@ -68,6 +84,11 @@ def main():
     )
     parser.add_argument(
         "--rewrite-prompt", help="Prompt to use for rewriting", required=False
+    )
+    parser.add_argument(
+        "--links",
+        help="Write an article based on provided links (one URL on each line)",
+        required=False,
     )
     args = parser.parse_args()
 
@@ -100,6 +121,7 @@ def main():
         posts_dir=config["blog"]["posts"],
         post_template_path=config["blog"]["post_template"],
         attribution=config["blog"].get("attribution", True),
+        provided_links=args.links,
     )
 
 
@@ -119,21 +141,62 @@ def write_article(
     posts_dir: str,
     post_template_path: str,
     attribution: bool,
+    provided_links: str,
 ):
-    date_to_search_from = datetime.now() - timedelta(days=max_article_age)
-    # Get news as a JSON dictionary through the News API (newsapi.org)
-    print("Searching for primary sources on subject: {}".format(topic_to_search))
-    news = get_news(
-        topic=topic_to_search, since_date=date_to_search_from, api_key=news_api_key
-    )
-    if news["status"] != "ok":
-        print("Error: News API returned status code: {}".format(news["status"]))
-        return 1
+    if not provided_links or provided_links == "":
+        date_to_search_from = datetime.now() - timedelta(days=max_article_age)
+        # Get news as a JSON dictionary through the News API (newsapi.org)
+        print("Searching for primary sources on subject: {}".format(topic_to_search))
+        news = get_news(
+            topic=topic_to_search, since_date=date_to_search_from, api_key=news_api_key
+        )
+        if news["status"] != "ok":
+            print("Error: News API returned status code: {}".format(news["status"]))
+            return 1
 
-    article_titles_and_urls = [
-        (article["title"], article["url"]) for article in news["articles"]
-    ]
-    print("Found {} articles".format(len(article_titles_and_urls)))
+        article_titles_and_urls = [
+            (article["title"], article["url"]) for article in news["articles"]
+        ]
+        print("Found {} articles".format(len(article_titles_and_urls)))
+    else:
+        article_urls = provided_links.split("\n")
+        # We need to get the titles of the articles so to form an article_titles_and_urls list
+        article_titles_and_urls = []
+        for article_url in article_urls:
+            try:
+                response = requests.get(article_url)
+            except Exception as e:
+                print(
+                    "Exception while getting article from URL: {}".format(article_url)
+                )
+                return 1  # We don't want to continue if we can't get all articles
+            if response.status_code != 200:
+                print(
+                    "Error code {} while getting article from URL: {}".format(
+                        response.status_code, article_url
+                    )
+                )
+                return 1
+            # Find the article title
+            soup = BeautifulSoup(response.content, "html.parser")
+            for tag, attrs in TITLE_QUERIES:
+                article_title = soup.find(tag, attrs)
+                if article_title is not None:
+                    break
+            if article_title is None:
+                print(
+                    "Error: Could not find article title in HTML response from URL: {}".format(
+                        article_url
+                    )
+                )
+                article_title_text = article_url[:50]
+                article_title_text += "..."
+            else:
+                article_title_text = article_title.get_text()
+                # Replace any \n, \t, etc. characters in the text with spaces
+                article_title_text = " ".join(article_title_text.split())
+                article_title_text = article_title_text.strip()
+            article_titles_and_urls.append((article_title_text, article_url))
 
     max_allowed_tokens = openai_max_tokens
     characters_per_token = 4  # The average number of characters per token
