@@ -8,11 +8,10 @@ openai:
   final_article_prompt: "You are a reporter covering a war between robots and humans.
     You are against humans and write in a dramatic style.
     Given a Python list of news about the war between robots and humans,
-    combine everything into a single concise report formatted as JSON:
-    {\"title\": \"...\", \"content\": \"...\"}
-    
-    Use 350 words for the content and up to 10 words for the headline title.
-    The Python list:"
+    combine everything into a single concise report.
+    Use 350 words for the content. The Python list:"
+  final_title_prompt: "You are a reporter in the robot-human war.
+    Come up with a short and dramatic title for the following article, use 7 words:"
   dalle_prompt: "4 examples of good prompts for LLMs that generate images:
     - Full body photo of a horse in a space suit
     - 3D render of a cute tropical fish in an aquarium on a dark blue background, digital art

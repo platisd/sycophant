@@ -112,6 +112,7 @@ def main():
         openai_temperature=config["openai"]["temperature"],
         openai_article_summary_prompt=config["openai"]["article_summary_prompt"],
         openai_final_article_prompt=config["openai"]["final_article_prompt"],
+        openai_final_title_prompt=config["openai"]["final_title_prompt"],
         openai_prompt_for_dalle=config["openai"]["dalle_prompt"],
         news_api_key=args.news_api_key,
         topic_to_search=config["news"]["topic"],
@@ -132,6 +133,7 @@ def write_article(
     openai_temperature: float,
     openai_article_summary_prompt: str,
     openai_final_article_prompt: str,
+    openai_final_title_prompt: str,
     openai_prompt_for_dalle: str,
     news_api_key: str,
     topic_to_search: str,
@@ -266,38 +268,33 @@ def write_article(
 
     print("Generating the final article...")
     final_article_prompt = openai_final_article_prompt + "\n" + str(summarized_articles)
-    final_article_response = get_openai_response(
+    final_article = {}
+    final_article["content"] = get_openai_response(
         prompt=final_article_prompt,
         model=openai_model,
         temperature=openai_temperature,
         api_key=openai_api_key,
     )
 
-    final_article = try_loads(final_article_response)
-    if not final_article:
-        print(
-            "Error: Could not parse final article response, let's try to continue the response"
-        )
-        final_article_response = get_openai_response(
-            prompt="Complete the JSON response: {}".format(final_article_response),
-            model=openai_model,
-            temperature=openai_temperature,
-            api_key=openai_api_key,
-        )
-        final_article = try_loads(final_article_response)
-        if not final_article:
-            print(
-                "Error: Could not parse JSON response: {}".format(
-                    final_article_response
-                )
-            )
-            return 1
+    final_title_prompt = openai_final_title_prompt + "\n" + final_article["content"]
+    final_article["title"] = get_openai_response(
+        prompt=final_title_prompt,
+        model=openai_model,
+        temperature=openai_temperature,
+        api_key=openai_api_key,
+    )
+    # It seems that GPT models (up to GPT-4) are very biased towards generating titles
+    # that are formulated as "<generic statement>: <specific statement>"
+    # It's not clear how to reliably solve this with prompting, so let's keep only
+    # the specific statement, i.e. the part after the colon
+    if ":" in final_article["title"]:
+        final_article["title"] = final_article["title"].split(":")[1].strip()
 
     print("Generating tags for the final article...")
     generated_tags_response = get_openai_response(
         prompt="Generate 3 tags as a JSON list, use one word for each tag,"
         + 'e.g. ["tag1", "tag2", "tag3"], for the following article: \n'
-        + final_article["title"],
+        + final_article["content"],
         model=openai_model,
         temperature=openai_temperature,
         api_key=openai_api_key,
@@ -315,6 +312,11 @@ def write_article(
     # Split the tags into comma-separated values
     generated_tags = ", ".join(generated_tags)
     generated_tags = "[" + generated_tags + "]"
+
+    print(final_article["title"])
+    print(final_article["content"])
+    print(generated_tags)
+    return 0
 
     print("Generating the prompt for the image generation...")
     prompt_gpt_to_create_dalle_prompt = openai_prompt_for_dalle + final_article["title"]
