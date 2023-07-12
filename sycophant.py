@@ -289,6 +289,10 @@ def write_article(
     # the specific statement, i.e. the part after the colon
     if ":" in final_article["title"]:
         final_article["title"] = final_article["title"].split(":")[1].strip()
+        # Capitalize the first letter of the title
+        final_article["title"] = (
+            final_article["title"][0].upper() + final_article["title"][1:]
+        )
 
     print("Generating tags for the final article...")
     generated_tags_response = get_openai_response(
