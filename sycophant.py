@@ -283,6 +283,7 @@ def write_article(
         temperature=openai_temperature,
         api_key=openai_api_key,
     )
+    final_article["title"] = final_article["title"].strip('"')
     # It seems that GPT models (up to GPT-4) are very biased towards generating titles
     # that are formulated as "<generic statement>: <specific statement>"
     # It's not clear how to reliably solve this with prompting, so let's keep only
