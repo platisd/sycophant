@@ -317,11 +317,6 @@ def write_article(
     generated_tags = ", ".join(generated_tags)
     generated_tags = "[" + generated_tags + "]"
 
-    print(final_article["title"])
-    print(final_article["content"])
-    print(generated_tags)
-    return 0
-
     print("Generating the prompt for the image generation...")
     prompt_gpt_to_create_dalle_prompt = openai_prompt_for_dalle + final_article["title"]
     dalle_prompt = get_openai_response(
