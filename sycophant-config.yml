@@ -11,7 +11,9 @@ openai:
     combine everything into a single concise report.
     Use 350 words for the content. The Python list:"
   final_title_prompt: "You are a reporter in the robot-human war.
-    Come up with a short and dramatic title for the following article, use 7 words:"
+    Come up with a short and dramatic title for an article. Use 7 words.
+    Capitalize only the first word and names.
+    The article:"
   dalle_prompt: "4 examples of good prompts for LLMs that generate images:
     - Full body photo of a horse in a space suit
     - 3D render of a cute tropical fish in an aquarium on a dark blue background, digital art
