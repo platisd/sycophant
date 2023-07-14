@@ -1,6 +1,6 @@
 # sycophant
 
-Generate articles based on the latest news, using OpenAI's models.
+Opinionated articles based on the latest news, a [churnalist's](https://en.wikipedia.org/wiki/Churnalism) wet dream.
 
 ![sycophant](sycophant-logo.png)
 
