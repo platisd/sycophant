@@ -115,6 +115,7 @@ def main():
         openai_article_summary_prompt=config["openai"]["article_summary_prompt"],
         openai_final_article_prompt=config["openai"]["final_article_prompt"],
         openai_final_title_prompt=config["openai"]["final_title_prompt"],
+        image_generation_model=config["openai"]["dalle_model"],
         openai_prompt_for_dalle=config["openai"]["dalle_prompt"],
         news_api_key=args.news_api_key,
         topic_to_search=config["news"]["topic"],
@@ -135,6 +136,7 @@ def write_article(
     openai_temperature: float,
     openai_article_summary_prompt: str,
     openai_final_article_prompt: str,
+    image_generation_model: str,
     openai_final_title_prompt: str,
     openai_prompt_for_dalle: str,
     news_api_key: str,
@@ -330,9 +332,13 @@ def write_article(
         openai_client=openai_client,
     )
 
-    print("Generating an image based on the article...")
+    print(f"Generating an image based on the article with {image_generation_model}...")
     dalle_response = openai_client.images.generate(
-        prompt=dalle_prompt, n=1, size="1024x1024", response_format="url"
+        model=image_generation_model,
+        prompt=dalle_prompt,
+        n=1,
+        size="1024x1024",
+        response_format="url",
     )
     dalle_image_url = dalle_response.data[0].url
 

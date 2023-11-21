@@ -14,6 +14,7 @@ openai:
     Come up with a short and dramatic title for an article. Use 7 words.
     Capitalize only the first word and names.
     The article:"
+  dalle_model: "dall-e-3"
   dalle_prompt: "4 examples of good prompts for LLMs that generate images:
     - Full body photo of a horse in a space suit
     - 3D render of a cute tropical fish in an aquarium on a dark blue background, digital art

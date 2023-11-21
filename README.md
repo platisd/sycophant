@@ -92,6 +92,7 @@ Let's take a look at the configuration file's compulsory fields:
 | `openai/article_summary_prompt` | The prompt to use for summarizing the different articles          |                                   |
 | `openai/final_article_prompt`   | The prompt to use for generating the final (published) article    |                                   |
 | `openai/final_title_prompt`     | The prompt to use for generating the final article's title        |                                   |
+| `openai/dalle_model`            | The model to use for image generation                             | [Models overview]                 |
 | `openai/dalle_prompt`           | The prompt to use for generating the image with Dall-E            |                                   |
 | `news/topic`                    | The topic to use for fetching the latest news                     | [Advanced queries] supported      |
 | `news/max_age_in_days`          | The maximum age of the news to fetch                              | Free-tier has limits on age       |
