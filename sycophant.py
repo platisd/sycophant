@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 import sys
-import requests
 import argparse
 import json
-import openai
 import re
-import yaml
 
-from datetime import datetime, timedelta
-from bs4 import BeautifulSoup
 from io import BytesIO
-from PIL import Image
+from datetime import datetime, timedelta
 from pathlib import Path
+
+from openai import OpenAI
+from bs4 import BeautifulSoup
+from PIL import Image
 from jinja2 import Environment, FileSystemLoader
+
+import yaml
+import requests
 
 # Tags and attributes to search for in the HTML response to find the article content
 CONTENT_QUERIES = [
@@ -98,7 +100,7 @@ def main():
 
     if args.rewrite_article:
         return rewrite_article(
-            openai_api_key=args.openai_api_key,
+            openai_client=OpenAI(api_key=args.openai_api_key),
             openai_model=config["openai"]["model"],
             openai_temperature=config["openai"]["temperature"],
             openai_rewrite_prompt=args.rewrite_prompt,
@@ -250,11 +252,12 @@ def write_article(
         if len(prompt) > max_allowed_characters:
             prompt = prompt[:max_allowed_characters]
 
+        openai_client = OpenAI(api_key=openai_api_key)
         generated_summary = get_openai_response(
             prompt=prompt,
             model=openai_model,
             temperature=openai_temperature,
-            api_key=openai_api_key,
+            openai_client=openai_client,
         )
         summarized_articles.append(generated_summary)
         original_articles_urls.append({"url": article_url, "title": article_title})
@@ -273,7 +276,7 @@ def write_article(
         prompt=final_article_prompt,
         model=openai_model,
         temperature=openai_temperature,
-        api_key=openai_api_key,
+        openai_client=openai_client,
     )
 
     final_title_prompt = openai_final_title_prompt + "\n" + final_article["content"]
@@ -281,7 +284,7 @@ def write_article(
         prompt=final_title_prompt,
         model=openai_model,
         temperature=openai_temperature,
-        api_key=openai_api_key,
+        openai_client=openai_client,
     )
     final_article["title"] = final_article["title"].strip('"')
     # It seems that GPT models (up to GPT-4) are very biased towards generating titles
@@ -302,7 +305,7 @@ def write_article(
         + final_article["content"],
         model=openai_model,
         temperature=openai_temperature,
-        api_key=openai_api_key,
+        openai_client=openai_client,
     )
     generated_tags = try_loads(generated_tags_response)
     if not generated_tags:
@@ -324,17 +327,14 @@ def write_article(
         prompt=prompt_gpt_to_create_dalle_prompt,
         model=openai_model,
         temperature=openai_temperature,
-        api_key=openai_api_key,
+        openai_client=openai_client,
     )
 
     print("Generating an image based on the article...")
-    dalle_response = openai.Image.create(
-        prompt=dalle_prompt,
-        n=1,
-        size="1024x1024",
-        response_format="url",
+    dalle_response = openai_client.images.generate(
+        prompt=dalle_prompt, n=1, size="1024x1024", response_format="url"
     )
-    dalle_image_url = dalle_response["data"][0]["url"]
+    dalle_image_url = dalle_response.data[0].url
 
     print("Downloading the image...")
     response = requests.get(dalle_image_url)
@@ -406,7 +406,7 @@ def write_article(
 
 
 def rewrite_article(
-    openai_api_key: str,
+    openai_client: OpenAI,
     openai_model: str,
     openai_temperature: float,
     openai_rewrite_prompt: str,
@@ -442,7 +442,7 @@ def rewrite_article(
         prompt=openai_rewrite_prompt,
         model=openai_model,
         temperature=openai_temperature,
-        api_key=openai_api_key,
+        openai_client=openai_client,
     )
 
     # Replace the content of the article with the rewritten one
@@ -466,9 +466,10 @@ def try_loads(maybe_json: str):
         return None
 
 
-def get_openai_response(prompt: str, model: str, temperature: float, api_key: str):
-    openai.api_key = api_key
-    openai_response = openai.ChatCompletion.create(
+def get_openai_response(
+    prompt: str, model: str, temperature: float, openai_client: OpenAI
+):
+    openai_response = openai_client.chat.completions.create(
         model=model,
         messages=[
             {
