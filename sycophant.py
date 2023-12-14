@@ -380,7 +380,7 @@ def write_article(
     post_tags = generated_tags
     img_path = "/" + assets_dir
     post_image = image_file_name
-    image_caption = "'" + dalle_prompt + "'"
+    image_caption = '"' + dalle_prompt.replace('"', "'") + '"'
     post_content = final_article["content"] + made_with_sycophant + attribution_links
     post_content += "\n"  # Finish with a newline to be nice
     post_filename = image_file_name.with_suffix(".md")
