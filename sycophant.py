@@ -303,12 +303,20 @@ def write_article(
     print("Generating tags for the final article...")
     generated_tags_response = get_openai_response(
         prompt="Generate 3 tags as a JSON list, use one word for each tag,"
-        + 'e.g. ["tag1", "tag2", "tag3"], for the following article: \n'
+        + 'e.g. ["tag1", "tag2", "tag3"], without any backticks '
+        + "or markdown formatting, for the following article: \n"
         + final_article["content"],
         model=openai_model,
         temperature=openai_temperature,
         openai_client=openai_client,
     )
+    if generated_tags_response.startswith(
+        "```json"
+    ) and generated_tags_response.endswith("```"):
+        # Remove the code block markdown formatting
+        print("Removing code block markdown formatting from response")
+        generated_tags_response = generated_tags_response[8:-3]
+
     generated_tags = try_loads(generated_tags_response)
     if not generated_tags:
         print(
