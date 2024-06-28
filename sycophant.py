@@ -92,6 +92,13 @@ def main():
         help="Write an article based on provided links (one URL on each line)",
         required=False,
     )
+    parser.add_argument(
+        "--additional-render-args",
+        help="Additional render arguments for the Jinja template",
+        required=False,
+        type=json.loads,
+        default={},
+    )
     args = parser.parse_args()
 
     # Load the config file
@@ -126,6 +133,7 @@ def main():
         post_template_path=config["blog"]["post_template"],
         attribution=config["blog"].get("attribution", True),
         provided_links=args.links,
+        additional_render_args=args.additional_render_args,
     )
 
 
@@ -148,6 +156,7 @@ def write_article(
     post_template_path: str,
     attribution: bool,
     provided_links: str,
+    additional_render_args: dict,
 ):
     if not provided_links or provided_links == "":
         date_to_search_from = datetime.now() - timedelta(days=max_article_age)
@@ -396,15 +405,17 @@ def write_article(
     print("Generating the final post...")
     environment = Environment(loader=FileSystemLoader(Path(post_template_path).parent))
     template = environment.get_template(Path(post_template_path).name)
-    output = template.render(
-        post_title=post_title,
-        post_date=post_date,
-        post_tags=post_tags,
-        img_path=img_path,
-        post_image=post_image,
-        image_caption=image_caption,
-        post_content=post_content,
-    )
+    render_args = {
+        "post_title": post_title,
+        "post_date": post_date,
+        "post_tags": post_tags,
+        "img_path": img_path,
+        "post_image": post_image,
+        "image_caption": image_caption,
+        "post_content": post_content,
+    }
+    render_args.update(additional_render_args)
+    output = template.render(render_args)
 
     post_path = Path(posts_dir) / post_filename
     with open(post_path, "w") as f:
