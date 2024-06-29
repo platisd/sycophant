@@ -16,7 +16,7 @@ it may be telling you what you want to hear. Does it have an advantage to gain? 
 
 ## Why
 
-To be honest, `sycophant` is more of a gimmick at this point, or at least that's how I am personallyusing it.<br>
+To be honest, `sycophant` is more of a gimmick at this point, or at least that's how I am personally using it.<br>
 As the proud owner of the domain name [robots.army](https://robots.army/), I always wanted to have some sort of
 news aggregator on the theme of robots.
 At first I started with the [@RobotsArmy](https://twitter.com/RobotsArmy) Twitter bot, but it got banned. 🤣<br>
