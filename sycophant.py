@@ -12,56 +12,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from openai import OpenAI
-from bs4 import BeautifulSoup
 from PIL import Image
 from jinja2 import Environment, FileSystemLoader
+from newspaper import Article
+
 
 import yaml
 import requests
-
-# Tags and attributes to search for in the HTML response to find the article content
-CONTENT_QUERIES = [
-    ("article", {"class": "article-content"}),
-    ("article", {}),
-    ("p", {"class": "story-body-text story-content"}),
-    ("div", {"class": "article-body"}),
-    ("div", {"class": "content"}),
-    ("div", {"class": "entry"}),
-    ("div", {"class": "post"}),
-    ("div", {"class": "blog-post"}),
-    ("div", {"class": "article-content"}),
-    ("div", {"class": "article-body"}),
-    ("div", {"class": "article-text"}),
-    ("div", {"class": "article-wrapper"}),
-    ("div", {"class": "story"}),
-    ("div", {"id": "article"}),
-    ("div", {"id": "content"}),
-    ("div", {"id": "entry"}),
-    ("div", {"id": "post"}),
-    ("div", {"id": "blog-post"}),
-    ("div", {"id": "article-content"}),
-    ("div", {"id": "article-body"}),
-    ("div", {"id": "article-text"}),
-    ("div", {"id": "article-wrapper"}),
-    ("section", {"class": "article-body"}),
-    ("section", {"class": "article-content"}),
-]
-
-# Tags and attributes to search for in the HTML response to find the article title
-TITLE_QUERIES = [
-    ("title", {}),
-    ("h1", {"class": "story-body__h1"}),
-    ("h1", {"class": "story-body__h1"}),
-    ("h1", {"class": "entry-title"}),
-    ("h1", {"class": "post-title"}),
-    ("h1", {"class": "blog-post-title"}),
-    ("h1", {"class": "article-title"}),
-    ("h1", {"class": "entry-title"}),
-    ("h1", {"class": "post-title"}),
-    ("h1", {"class": "blog-post-title"}),
-    ("h1", {"class": "article-title"}),
-    ("h1", {"class": "entry-title"}),
-]
 
 
 def get_news(topic: str, since_date: datetime, api_key: str):
@@ -172,49 +129,11 @@ def write_article(
             print("Error: News API returned status code: {}".format(news["status"]))
             return 1
 
-        article_titles_and_urls = [
-            (article["title"], article["url"]) for article in news["articles"]
-        ]
-        print("Found {} articles".format(len(article_titles_and_urls)))
+        article_urls = [article["url"] for article in news["articles"]]
+        print("Found {} articles".format(len(article_urls)))
     else:
         article_urls = provided_links.split("\n")
-        # We need to get the titles of the articles so to form an article_titles_and_urls list
-        article_titles_and_urls = []
-        for article_url in article_urls:
-            try:
-                response = requests.get(article_url)
-            except Exception as e:
-                print(
-                    "Exception while getting article from URL: {}".format(article_url)
-                )
-                return 1  # We don't want to continue if we can't get all articles
-            if response.status_code != 200:
-                print(
-                    "Error code {} while getting article from URL: {}".format(
-                        response.status_code, article_url
-                    )
-                )
-                return 1
-            # Find the article title
-            soup = BeautifulSoup(response.content, "html.parser")
-            for tag, attrs in TITLE_QUERIES:
-                article_title = soup.find(tag, attrs)
-                if article_title is not None:
-                    break
-            if article_title is None:
-                print(
-                    "Error: Could not find article title in HTML response from URL: {}".format(
-                        article_url
-                    )
-                )
-                article_title_text = article_url[:50]
-                article_title_text += "..."
-            else:
-                article_title_text = article_title.get_text()
-                # Replace any \n, \t, etc. characters in the text with spaces
-                article_title_text = " ".join(article_title_text.split())
-                article_title_text = article_title_text.strip()
-            article_titles_and_urls.append((article_title_text, article_url))
+        print("Using the " + str(len(article_urls)) + " provided links")
 
     max_allowed_tokens = openai_max_tokens
     characters_per_token = 4  # The average number of characters per token
@@ -224,43 +143,21 @@ def write_article(
     original_articles_urls = []  # Only the titles and the URLs of the articles we use
 
     print("Summarizing the top-{} articles...".format(max_articles))
-    for article_title, article_url in article_titles_and_urls:
+    for article_url in article_urls:
         try:
-            response = requests.get(article_url)
+            article = Article(article_url)
+            article.download()
+            article.parse()
         except Exception as e:
-            print("Exception while getting article from URL: {}".format(article_url))
+            print("Exception while downloading/parsing article: {}".format(article.url))
             continue
-        if response.status_code != 200:
-            print(
-                "Error code {} while getting article from URL: {}".format(
-                    response.status_code, article_url
-                )
-            )
-            continue
-        # Find the actual article content in the HTML response using the relevant SEO tags
-        soup = BeautifulSoup(response.text, "html.parser")
-        for tag, attrs in CONTENT_QUERIES:
-            article_content = soup.find(tag, attrs)
-            if article_content is not None:
-                break
-        if article_content is None:
-            print(
-                "Error: Could not find article content in HTML response from URL: {}".format(
-                    article_url
-                )
-            )
-            continue
-        # Get the text from the article content
-        article_text = article_content.get_text()
-        # Replace any \n, \t, etc. characters in the text with spaces
-        article_text = " ".join(article_text.split())
 
         prompt = (
             openai_article_summary_prompt
             + "\n\n```\n"
-            + article_title
+            + article.title
             + "\n\n"
-            + article_text
+            + article.text
             + "\n```"
         )
         if len(prompt) > max_allowed_characters:
@@ -274,7 +171,7 @@ def write_article(
             openai_client=openai_client,
         )
         summarized_articles.append(generated_summary)
-        original_articles_urls.append({"url": article_url, "title": article_title})
+        original_articles_urls.append({"url": article.url, "title": article.title})
 
         if len(summarized_articles) >= max_articles:
             break
