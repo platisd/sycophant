@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""
+Generate articles based on the latest news, on the subject of your choice.
+"""
 import sys
 import argparse
 import json
