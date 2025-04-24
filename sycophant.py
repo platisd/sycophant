@@ -6,6 +6,7 @@ import sys
 import argparse
 import json
 import re
+import base64
 
 from io import BytesIO
 from datetime import datetime, timedelta
@@ -255,20 +256,11 @@ def write_article(
         prompt=dalle_prompt,
         n=1,
         size="1024x1024",
-        response_format="url",
     )
-    dalle_image_url = dalle_response.data[0].url
+    image_base64 = dalle_response.data[0].b64_json
+    image_bytes = base64.b64decode(image_base64)
 
-    print("Downloading the image...")
-    response = requests.get(dalle_image_url)
-    if response.status_code != 200:
-        print(
-            "Error code {} while getting image from URL: {}".format(
-                response.status_code, dalle_image_url
-            )
-        )
-        return 1
-    image = Image.open(BytesIO(response.content))
+    image = Image.open(BytesIO(image_bytes))
     title_normalized = re.sub(r"[^\w\s]", "", final_article["title"])
     title_normalized = title_normalized.replace(" ", "_")
     current_date = datetime.now().strftime("%Y-%m-%d")
