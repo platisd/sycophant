@@ -1,5 +1,5 @@
 openai:
-  model: "gpt-4o"
+  model: "gpt-5"
   max_tokens: 8000
   temperature: 0.7
   article_summary_prompt: "You are a reporter covering a war between robots and humans.
